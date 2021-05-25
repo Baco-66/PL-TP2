@@ -1,0 +1,18 @@
+PUSHI 1
+START
+	PUSHI 10
+	STOREG 0
+while1:
+	PUSHG 0
+	PUSHI 0
+	SUP
+	JZ while_end2
+	PUSHG 0
+	WRITEI
+	PUSHG 0
+	PUSHI 1
+	SUB
+	STOREG 0
+	JZ while1
+while_end2:
+STOP
