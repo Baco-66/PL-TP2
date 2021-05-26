@@ -2,28 +2,60 @@ import ply.yacc as yacc
 import re
 # Get the tokens from the lexer
 from compilador_lex import tokens
+from difflib import SequenceMatcher
 
 # Production rules fro Program
 def p_Program(p):
     "Program : Start Code" 
     outputFile.write("STOP")
 
-# Production rules for declaration
-def p_Declaration(p):
-    "Declaration : type id ';' Declaration"
-    p[0] = p[4] + 1
-    p.parser.var.update({p[2] : len(p.parser.var)})
-    #p.var[p[2]] = 
-
-def p_Declaration_Empty(p):
-    "Declaration : "
-    p[0] = 0    
-
 # Production rules for start
 def p_Start(p):
     "Start : Declaration start"
-    outputFile.write("PUSHN "+ str(p[1]) + "\n")
+    outputFile.write("PUSHN " + str(p.parser.startup - p[1]) + "\n")
     outputFile.write("START\n")
+
+# Production rules for declaration
+def p_Declaration(p):
+    "Declaration : int Attr Declaration"
+    p[0] = p[2] + p[3]
+
+def p_Declaration_Array(p):
+    "Declaration : int id '[' integer ']' ';' Declaration"
+    p.parser.var.update({p[2] : (p.parser.startup, p[4])})
+    p.parser.startup += p[4]
+    p[0] = p[7]
+
+def p_Declaration_Empty(p):
+    "Declaration : "  
+    p[0] = 0  
+
+# Production rules for MoreInt
+def p_Attr(p):
+    "Attr : id ',' Attr "
+    p.parser.var.update({p[1] : p.parser.startup})
+    p.parser.startup += 1
+    p[0] = p[3]
+
+def p_Attr_value(p):
+    "Attr : id '=' integer ',' Attr"
+    p.parser.var.update({p[1] : p.parser.startup})
+    p.parser.startup += 1
+    p[0] = 1 + p[6]
+    outputFile.write("PUSHI " + str(p[3]) + "\n")
+
+def p_MoreInt_empty(p):
+    "Attr : id ';'"
+    p.parser.var.update({p[1] : p.parser.startup})
+    p.parser.startup += 1
+    p[0] = 0
+
+def p_Attr_value_empty(p):
+    "Attr : id '=' integer ';'"
+    p.parser.var.update({p[1] : p.parser.startup})
+    p.parser.startup += 1
+    p[0] = 1
+    outputFile.write("PUSHI " + str(p[3]) + "\n")
 
 # Production rules for code
 def p_Code(p):
@@ -39,17 +71,35 @@ def p_Line_Print_Exp(p):
     "Line : print '(' Exp ')'"
     outputFile.write("\tWRITEI\n")
 
+def p_Line_Print_String(p):
+    "Line : printS '(' String ')'"
+    outputFile.write("\tWRITES\n")
+
 def p_Line_Read_Attr(p):
     "Line : read '(' id ')'"
     outputFile.write("\tREAD\n")
     outputFile.write("\tATOI\n")
     outputFile.write("\tSTOREG " + str(p.parser.var.get(p[3])) + "\n")
-    pass
 
 def p_Line_Store_Attr(p):
     "Line : id '=' Exp ';'"
     outputFile.write("\tSTOREG " + str(p.parser.var.get(p[1])) + "\n")
-    pass
+
+def p_Line_Store_Attr_Array(p):
+    "Line : Array '=' Exp ';'"
+    outputFile.write("\tSTOREN\n")
+
+def p_Line_Inc_Attr(p):
+    "Line : id '+' '+' ';'"
+    outputFile.write("\tPUSHG " + str(p.parser.var.get(p[1], 0)) + "\n")
+    outputFile.write("\tPUSHI 1\n\tADD\n")
+    outputFile.write("\tSTOREG " + str(p.parser.var.get(p[1])) + "\n")
+
+def p_Line_Dec_Attr(p):
+    "Line : id '-' '-' ';'"
+    outputFile.write("\tPUSHG " + str(p.parser.var.get(p[1], 0)) + "\n")
+    outputFile.write("\tPUSHI 1\nSUB\n")
+    outputFile.write("\tSTOREG " + str(p.parser.var.get(p[1])) + "\n")
 
 def p_Line_Cond(p):
     "Line : if '(' Cond ')' CondCode"
@@ -57,11 +107,17 @@ def p_Line_Cond(p):
 
 def p_Line_While(p):
     "Line : WhileStart WhileLoop '{' Code '}'"
-    outputFile.write("\tJZ " + p[1] + "\n")
+    outputFile.write("\tJUMP " + p[1] + "\n")
+    outputFile.write(p[2] + ":\n")
+
+def p_Line_Repeat(p):
+    "Line : RepeatStart RepeatLoop '{' Code '}'"
+    outputFile.write("\tPUSHG 0\n\tPUSHI 1\n\tSUB\n\tSTOREG 0\n")
+    outputFile.write("\tJUMP " + p[1] + "\n")
     outputFile.write(p[2] + ":\n")
 
 def p_Line_Exp(p):
-    "Line : Exp ';'"
+    "Line : '(' Exp ')'"
     pass
 
 # Production for WhileStart
@@ -75,7 +131,23 @@ def p_WhileStart(p):
 def p_WhileLoop(p):
     "WhileLoop : '(' Cond ')'"
     p.parser.id += 1
-    p[0] = "while_end" + str(p.parser.id)
+    p[0] = "whileEnd" + str(p.parser.id)
+    outputFile.write("\tJZ " + p[0] + "\n")
+
+# Production for Repeat
+def p_RepeatStart(p):
+    "RepeatStart : repeat '(' Exp"
+    outputFile.write("\tSTOREG 0\n")
+    p.parser.id += 1
+    p[0] = "repeat" + str(p.parser.id)
+    outputFile.write(p[0] + ":\n")
+
+# Production for RepeatLoop
+def p_RepeatLoop(p):
+    "RepeatLoop : ')'"
+    outputFile.write("\tPUSHG 0\n\tPUSHI 0\n\tSUP\n")
+    p.parser.id += 1
+    p[0] = "repeatEnd" + str(p.parser.id)
     outputFile.write("\tJZ " + p[0] + "\n")
 
 # Production for CondCode
@@ -159,6 +231,19 @@ def p_Cond_Not_Equal(p):
     outputFile.write("\tEQUAL\n")
     outputFile.write("\tNOT\n")
 
+def p_Array(p):
+    "Array : id '[' integer ']'"
+    outputFile.write("\tPUSHGP\n\tPUSHI " + str(p.parser.var.get(p[1])[0]) + "\n\tPADD\n")
+    outputFile.write("\tPUSHI " + str(p[3]) + "\n")
+
+def p_Array_id(p):
+    "Array : id '[' id ']'"
+    outputFile.write("\tPUSHGP\n\tPUSHI " + str(p.parser.var.get(p[1])[0]) + "\n\tPADD\n")
+    outputFile.write("\tPUSHG " + str(p.parser.var.get(p[3])) + "\n")
+
+
+# INTEGERS
+
 # Production rules for exp
 def p_Exp_SUM(p):
     "Exp : Exp '+' Termo"
@@ -181,6 +266,10 @@ def p_Termo_DIV(p):
     "Termo : Termo '/' Factor"
     outputFile.write("\tDIV\n")
 
+def p_Termo_MOD(p):
+    "Termo : Termo '%' Factor"
+    outputFile.write("\tMOD\n")
+
 def p_Termo(p):
     "Termo : Factor"
     pass
@@ -200,19 +289,24 @@ def p_Factor_Signal(p):
 
 # Production rules for Atomic
 def p_Atomic_Int(p):
-    "Atomic : int"
+    "Atomic : integer"
     outputFile.write("\tPUSHI " + str(p[1])+ "\n")
 
 def p_Atomic_Id(p):
     "Atomic : id"
     outputFile.write("\tPUSHG " + str(p.parser.var.get(p[1], 0)) + "\n")
 
-#def p_Factor_Float(p):
-#    "Factor : Signal float"
-#    outputFile.write("pushi ", p[2])
-#    outputFile.write("pushi ", p[1], "\n")
-#    outputFile.write("mul\n")
-#    p[0] = p[1] * p[2]
+def p_Atomic_Array(p):
+    "Atomic : id '[' integer ']'"
+    outputFile.write("\tPUSHGP\n\tPUSHI " + str(p.parser.var.get(p[1])[0]) + "\n\tPADD\n")
+    outputFile.write("\tPUSHI " + str(p[3]) + "\n")
+    outputFile.write("\tLOADN\n")
+
+def p_Atomic_Array_Id(p):
+    "Atomic : id '[' id ']'"
+    outputFile.write("\tPUSHGP\n\tPUSHI " + str(p.parser.var.get(p[1])[0]) + "\n\tPADD\n")
+    outputFile.write("\tPUSHG " + str(p.parser.var.get(p[3])) + "\n")
+    outputFile.write("\tLOADN\n")
 
 # Production rules for signal
 def p_Signal_End(p):
@@ -224,46 +318,67 @@ def p_Signal(p):
     outputFile.write("\tPUSHI -1\n")
     outputFile.write("\tMUL\n")
 
+# Production rules for String
+def p_String(p):
+    "String : string "
+    outputFile.write("\tPUSHS " + p[1] + "\n")
+
 # Error rule for syntax error
 def p_error(p):
-    print("Erro sintático", p)
-    parser.success = False
+    print("YACC ERROR:\n\t" + str(p))
+    line_size = p.lexpos - code.rfind('\n', 0, p.lexpos) +1
+    print("\tErro encontrado na linha", p.lineno, "coluna", line_size)
+    if p.type == "id":
+        if expected := mostSimilar(p.value):
+            print("\tYou wrote \'" + p.value + "\', did you mean to write \'" + expected + "\'?")
+        else:
+            #id not similar to any keywords
+            pass
+    elif p.type == "start":
+        print("\tKeyword 'start' misused, this keyword is utilized in the begining of your code block.")
+    else:
+        # por o resto dos tokens
+        pass
+
+def mostSimilar(error):
+    r = (None,0.5)
+    for t in tokens:
+        sim = similar(error, t)
+        if r[1] < sim:
+            r = (t,sim)
+    return r[0]
+    
+def similar(error,token):
+    return SequenceMatcher(None, error, token).ratio()
 
 # Build parser
 parser = yacc.yacc()
 
 import sys
+if len(sys.argv) == 2 and re.search(r'\.txt$',sys.argv[1]):
+    path = sys.argv[1]
+else:
+    path = "src/test.txt"
 
-inputFile = open("/home/baco/Documents/PL2021/Compilador/src/input_test.txt","r")
-outputFile = open("/home/baco/Documents/PL2021/Compilador/src/output_test.vm","w")
-
-i = len(sys.argv)
-
-while i > 0:
-    i -= 1
-    if path := sys.argv[i]:
-        if re.search(r'\.vm$',path):
-            outputFile = open(path,"w")
-        elif re.search(r'\.txt$',path):
-            inputFile = open(path,"r")
+inputFile = open(path,"r")
+path = re.sub(r'\.txt$',
+        r'.vm',
+        path)
+outputFile = open(path,"w")
     
-
 # parser state
 parser.erros = []
 parser.var = {}
 parser.id = 0
 
-# Read input and parse it by line
-#for linha in inputFile:
-#    parser.success = True
-#    parser.parse(linha)
+parser.var.update({"0" : len(parser.var)})
+parser.startup = len(parser.var)
 
+# Read input and parse the whole file
+code = inputFile.read()
+parser.parse(code)
 
-parser.parse(inputFile.read())
-
-print("Ficheiro compilado com sucesso")
-
-
+print("Exited parser")
 
 inputFile.close
 outputFile.close

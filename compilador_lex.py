@@ -6,6 +6,7 @@ import ply.lex as lex
 # Tokens
 reserved = {
     'print' : 'print',
+    'printS' : 'printS',
     'start' : 'start',
     'read' : 'read',
     'if' : 'if',
@@ -13,60 +14,39 @@ reserved = {
     'and' : 'and',
     'or' : 'or',
     'while' : 'while',
+    'repeat' : 'repeat',
+    'int' : 'int',
 }
-tokens = ['int','id','type'] + list(reserved.values())
-literals = ['+','-','*','/','(',')',';','=','<','>','{','}','!']
-
-t_ignore = " \t\n"
-
-def t_type(t):
-    r'int'
-    return t
-
-def t_print(t):
-    r'print'
-    return t
-
-def t_start(t):
-    r'start|START'
-    return t
-
-def t_read(t):
-    r'read'
-    return t
-
-def t_if(t):
-    r'if'
-    return t
-
-def t_else(t):
-    r'else'
-    return t
-
-def t_and(t):
-    r'and'
-    return t
-
-def t_or(t):
-    r'or'
-    return t
-
-def t_while(t):
-    r'while'
-    return t
+tokens = ['integer','id', 'string',] + list(reserved.values())
+literals = [
+    '+','-','*','/','%',
+    '(',')','[',']','{','}',
+    ',',';','=','<','>','!']
 
 def t_id(t):
     r'[a-zA-Z]+'
     t.type = reserved.get(t.value,'id')
     return t
 
-def t_int(t):
+def t_integer(t):
     r'\d+'
     t.value = int(t.value)
     return t
 
+def t_string(t):
+    r'\"[^\"]*\"'
+    return t
+
+def t_newline(t):
+    r'\n'
+    t.lexer.lineno += 1
+
+t_ignore = " \t"
+
 def t_error(t):
-    print('Carater ilegal: ', t.value[0])
+    print('LEX ERROR:\n\t' + str(t))
+    print("\tCarater ilegal \'" + t.value[0] + '\'')
+    print("\tLinha " + str(t.lexer.lineno))
     t.lexer.skip(1)
 
 lexer = lex.lex()
