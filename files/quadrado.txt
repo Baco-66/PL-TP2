@@ -1,0 +1,11 @@
+int a, b, c, d;
+start
+read(a)
+read(b)
+read(c)
+read(d)
+if ( a == b and a == c and  a == d){
+    print(1)
+} else {
+    print(0) 
+}

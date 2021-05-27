@@ -1,0 +1,17 @@
+int result;
+int input;
+int N;
+start
+printS("Insira a quantidade de numeros de input:\n")
+read(N)
+printS("Insira os")
+print(N)
+N--;
+printS("inteiros\n")
+read(result)
+repeat(N){
+    read(input)
+    result = result * input;
+}
+printS("Resultado: ")
+print(result)
