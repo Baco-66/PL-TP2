@@ -12,7 +12,7 @@ def p_Program(p):
 # Production rules for start
 def p_Start(p):
     "Start : Declaration start"
-    p.parser.var.update({"0" : len(parser.var)})
+    p.parser.var.update({"0" : p.parser.startup})
     p.parser.startup += 1
     outputFile.write("PUSHN " + str(p.parser.startup - p[1]) + "\n")
     outputFile.write("START\n")
@@ -32,14 +32,15 @@ def p_Declaration_Array(p):
         p.parser.startup += p[4]
     p[0] = p[7]
 
+
 def p_Declaration_Empty(p):
     "Declaration : "  
     p[0] = 0  
 
-# Production rules for MoreInt
+# Production rules for Attr
 def p_Attr(p):
     "Attr : id ',' Attr "
-    if id := p.parser.var.get(p[1]):
+    if type(p.parser.var.get(p[1])):
         print("Semantic error:")
         print("\tVariable \'" + p[1] + "\' already defined")
     else:
@@ -48,8 +49,8 @@ def p_Attr(p):
     p[0] = p[3]
 
 def p_Attr_value(p):
-    "Attr : id '=' integer ',' Attr"
-    if id := p.parser.var.get(p[1]):
+    "Attr : id '=' Atomic ',' Attr"
+    if type(p.parser.var.get(p[1])):
         print("Semantic error:")
         print("\tVariable \'" + p[1] + "\' already defined")
         p[0] = p[5]
@@ -57,30 +58,29 @@ def p_Attr_value(p):
         p.parser.var.update({p[1] : p.parser.startup})
         p.parser.startup += 1
         p[0] = 1 + p[5]
-        outputFile.write("PUSHI " + str(p[3]) + "\n")
-
-def p_MoreInt_empty(p):
-    "Attr : id ';'"
-    if id := p.parser.var.get(p[1]):
-        print("Semantic error:")
-        print("\tVariable \'" + p[1] + "\' already defined")
-    else:
-        p.parser.var.update({p[1] : p.parser.startup})
-        p.parser.startup += 1
-    p[0] = 0
-    
+        outputFile.write("PUSHI " + str(p[3]) + "\n")    
 
 def p_Attr_value_empty(p):
     "Attr : id '=' integer ';'"
-    if id := p.parser.var.get(p[1]):
-        print("Semantic error:")
-        print("\tVariable \'" + p[1] + "\' already defined")
-        p[0] = 0
-    else:
+    if type(p.parser.var.get(p[1])):
         p.parser.var.update({p[1] : p.parser.startup})
         p.parser.startup += 1
         p[0] = 1
         outputFile.write("PUSHI " + str(p[3]) + "\n")
+    else:
+        print("Semantic error:")
+        print("\tVariable \'" + p[1] + "\' already defined")
+        p[0] = 0
+
+def p_Attr_empty(p):
+    "Attr : id ';'"
+    if type(p.parser.var.get(p[1])):
+        p.parser.var.update({p[1] : p.parser.startup})
+        p.parser.startup += 1
+    else:
+        print("Semantic error:")
+        print("\tVariable \'" + p[1] + "\' already defined")
+    p[0] = 0
 
 # Production rules for code
 def p_Code(p):
@@ -105,10 +105,54 @@ def p_Line_Read_Attr(p):
     outputFile.write("\tATOI\n")
     outputFile.write("\tSTOREG " + str(p.parser.var.get(p[3])) + "\n")
 
+def p_Line_Read_Array(p):
+    "Line : read '(' id '[' integer ']' ')'"
+    id = p.parser.var.get(p[3])
+    if type(id) is tuple:
+        outputFile.write("\tPUSHGP\n\tPUSHI " + str(id[0]) + "\n\tPADD\n")
+        outputFile.write("\tPUSHI " + str(p[5]) + "\n")
+        outputFile.write("\tREAD\n")
+        outputFile.write("\tATOI\n")
+        outputFile.write("\tSTOREN\n")
+    elif type(id):
+        print("Semantic error:")
+        print("\tVariable \'" + p[3] + "\' is not an array.")
+    else:
+        print("Semantic error:")
+        print("\tVariable \'" + p[3] + "\' not defined.")
+
+
+    
+def p_Line_Read_Array_Id(p):
+    "Line : read '(' id '[' id ']' ')'"
+    id = p.parser.var.get(p[3])
+    if type(id) is tuple:
+        id1 = p.parser.var.get(p[5])
+        if type(id1):
+            outputFile.write("\tPUSHGP\n\tPUSHI " + str(id[0]) + "\n\tPADD\n")
+            outputFile.write("\tPUSHG " + str(p.parser.var.get(p[5])) + "\n")
+            outputFile.write("\tREAD\n")
+            outputFile.write("\tATOI\n")
+            outputFile.write("\tSTOREN\n")
+        else:
+            print("Semantic error:")
+            print("\tVariable \'" + p[5] + "\' not defined.")
+    elif type(id):
+        print("Semantic error:")
+        print("\tVariable \'" + p[3] + "\' is not an array.")
+    else:
+        print("Semantic error:")
+        print("\tVariable \'" + p[3] + "\' not defined.")
+
 def p_Line_Store_Attr(p):
     "Line : id '=' Exp ';'"
-    outputFile.write("\tSTOREG " + str(p.parser.var.get(p[1])) + "\n")
-
+    id = p.parser.var.get(p[1])
+    if type(id) is int or type(id) is tuple:
+        outputFile.write("\tSTOREG " + str(p.parser.var.get(p[1])) + "\n")
+    else:
+        print("Semantic error:")
+        print("\tVariable \'" + p[1] + "\' not defined.")
+    
 def p_Line_Store_Attr_Array(p):
     "Line : Array '=' Exp ';'"
     outputFile.write("\tSTOREN\n")
@@ -126,7 +170,7 @@ def p_Line_Dec_Attr(p):
     outputFile.write("\tSTOREG " + str(p.parser.var.get(p[1])) + "\n")
 
 def p_Line_Cond(p):
-    "Line : if '(' Cond ')' CondCode"
+    "Line : if Ifcond CondCode"
     pass
 
 def p_Line_While(p):
@@ -136,7 +180,8 @@ def p_Line_While(p):
 
 def p_Line_Repeat(p):
     "Line : RepeatStart RepeatLoop '{' Code '}'"
-    outputFile.write("\tPUSHG 0\n\tPUSHI 1\n\tSUB\n\tSTOREG 0\n")
+    outputFile.write("\tPUSHG " + str(p.parser.var.get("0")) + "\n\tPUSHI 1\n\tSUB\n")
+    outputFile.write("\tSTOREG " + str(p.parser.var.get("0")) + "\n")
     outputFile.write("\tJUMP " + p[1] + "\n")
     outputFile.write(p[2] + ":\n")
 
@@ -158,21 +203,63 @@ def p_WhileLoop(p):
     p[0] = "whileEnd" + str(p.parser.id)
     outputFile.write("\tJZ " + p[0] + "\n")
 
+# Production for WhileLoop
+def p_WhileLoop_error(p):
+    "WhileLoop : '(' error ')'"
+    print("\tError found in 'while' condition.")
+    print("\tExpected while condition:\n\t\twhile(condition){code}")
+    print("\tExpected condition structure:")
+    print('''\t\tCondition : Exp </>/=</>=/==/!= Exp
+                Condition and Condition
+                Condition or Condition
+                !Condition!''')
+    outputFile.write("\tPUSHI 0\n")
+    p.parser.id += 1
+    p[0] = "whileEnd" + str(p.parser.id)
+    outputFile.write("\tJZ " + p[0] + "\n")
+
 # Production for Repeat
 def p_RepeatStart(p):
     "RepeatStart : repeat '(' Exp"
-    outputFile.write("\tSTOREG 0\n")
+    outputFile.write("\tSTOREG " + str(p.parser.var.get("0")) + "\n")
     p.parser.id += 1
     p[0] = "repeat" + str(p.parser.id)
     outputFile.write(p[0] + ":\n")
 
+def p_RepeatStart_error(p):
+    "RepeatStart : repeat '(' error"
+    outputFile.write("\tPUSHI 0\n")
+    outputFile.write("\tSTOREG " + str(p.parser.var.get("0")) + "\n")
+    p.parser.id += 1
+    p[0] = "repeat" + str(p.parser.id)
+    outputFile.write(p[0] + ":\n")
+    print("\tError found in repeat number.")
+    print("\tValid repeat structure:\n\t\trepeat(integer){code}")
+    print("\tPlease insert valid integer.")
+
 # Production for RepeatLoop
 def p_RepeatLoop(p):
     "RepeatLoop : ')'"
-    outputFile.write("\tPUSHG 0\n\tPUSHI 0\n\tSUP\n")
+    outputFile.write("\tPUSHG " + str(p.parser.var.get("0")) + "\n\tPUSHI 0\n\tSUP\n")
     p.parser.id += 1
     p[0] = "repeatEnd" + str(p.parser.id)
     outputFile.write("\tJZ " + p[0] + "\n")
+
+# Production rules for Ifcond
+def p_Ifcond(p):
+    "Ifcond : '(' Cond ')'"
+    pass
+
+def p_Ifcond_error(p):
+    "Ifcond : '(' error ')'"
+    print("\tError found in 'if' condition.")
+    print("\tExpected if structure:\n\t\tif(condition){code}\n\t\tif(condition){code}else{code}")
+    print("\tExpected condition structure:")
+    print('''\t\tCondition : Exp </>/=</>=/==/!= Exp
+                Condition and Condition
+                Condition or Condition
+                !Condition!''')
+    outputFile.write("\tPUSHI 0\n")
 
 # Production for CondCode
 def p_CondCode(p):
@@ -234,23 +321,23 @@ def p_Rel_Sup(p):
     "Rel : Exp '>' Exp"
     outputFile.write("\tSUP\n")
 
-def p_Cond_Supeq(p):
+def p_Rel_Supeq(p):
     "Rel : Exp '>' '=' Exp"
     outputFile.write("\tSUPEQ\n")
 
-def p_Cond_Inf(p):
+def p_Rel_Inf(p):
     "Rel : Exp '<' Exp"
     outputFile.write("\tINF\n")
 
-def p_Cond_Infeq(p):
+def p_Rel_Infeq(p):
     "Rel : Exp '=' '<' Exp"
     outputFile.write("\tINFEQ\n")
 
-def p_Cond_Equal(p):
+def p_Rel_Equal(p):
     "Rel : Exp '=' '=' Exp"
     outputFile.write("\tEQUAL\n")
 
-def p_Cond_Not_Equal(p):
+def p_Rel_Not_Equal(p):
     "Rel : Exp '!' '=' Exp"
     outputFile.write("\tEQUAL\n")
     outputFile.write("\tNOT\n")
@@ -258,22 +345,41 @@ def p_Cond_Not_Equal(p):
 # Production rules for Array
 def p_Array(p):
     "Array : id '[' integer ']'"
-    if type(p.parser.var.get(p[1])) is tuple:
-        outputFile.write("\tPUSHGP\n\tPUSHI " + str(p.parser.var.get(p[1])[0]) + "\n\tPADD\n")
-        outputFile.write("\tPUSHI " + str(p[3]) + "\n")
+    id = p.parser.var.get(p[1])
+    if type(id):
+        if type(id) is tuple:
+            outputFile.write("\tPUSHGP\n\tPUSHI " + str(id[0]) + "\n\tPADD\n")
+            outputFile.write("\tPUSHI " + str(p[3]) + "\n")
+        else:
+            outputFile.write("\tPUSHGP\n")
+            print("Semantic error:")
+            print("\tVariable \'" + p[1] + "\' is not an array.")
     else:
+        outputFile.write("\tPUSHGP\n")
         print("Semantic error:")
-        print("\tVariable \'" + p[1] + "\' is not an array.")
-    
+        print("\tVariable \'" + p[1] + "\' not defined.")
 
 def p_Array_id(p):
     "Array : id '[' id ']'"
-    if type(p.parser.var.get(p[1])) is tuple:
-        outputFile.write("\tPUSHGP\n\tPUSHI " + str(p.parser.var.get(p[1])[0]) + "\n\tPADD\n")
-        outputFile.write("\tPUSHG " + str(p.parser.var.get(p[3])) + "\n")
+    id = p.parser.var.get(p[1])
+    id1 = p.parser.var.get(p[3])
+    if type(id):
+        if type(id) is tuple:
+            if type(id1) is int:
+                outputFile.write("\tPUSHGP\n\tPUSHI " + str(id[0]) + "\n\tPADD\n")
+                outputFile.write("\tPUSHG " + str(id1) + "\n")
+            else:
+                outputFile.write("\tPUSHGP\n")
+                print("Semantic error:")
+                print("\tVariable \'" + p[3] + "\' not defined.")
+        else:
+            outputFile.write("\tPUSHGP\n")
+            print("Semantic error:")
+            print("\tVariable \'" + p[1] + "\' is not an array.")
     else:
+        outputFile.write("\tPUSHGP\n")
         print("Semantic error:")
-        print("\tVariable \'" + p[1] + "\' is not an array.")
+        print("\tVariable \'" + p[1] + "\' not defined.")
 
 # INTEGERS
 
@@ -327,27 +433,46 @@ def p_Atomic_Int(p):
 
 def p_Atomic_Id(p):
     "Atomic : id"
-    outputFile.write("\tPUSHG " + str(p.parser.var.get(p[1], 0)) + "\n")
+    id = p.parser.var.get(p[1])
+    if type(id):
+        outputFile.write("\tPUSHG " + str(id) + "\n")
+    else:
+        print("Semantic error:")
+        print("\tVariable \'" + p[1] + "\' not defined.")
 
 def p_Atomic_Array(p):
     "Atomic : id '[' integer ']'"
-    if type(p.parser.var.get(p[1])) is tuple:
-        outputFile.write("\tPUSHGP\n\tPUSHI " + str(p.parser.var.get(p[1])[0]) + "\n\tPADD\n")
-        outputFile.write("\tPUSHI " + str(p[3]) + "\n")
-        outputFile.write("\tLOADN\n")
+    id = p.parser.var.get(p[1])
+    if type(id):
+        if type(id) is tuple:
+            outputFile.write("\tPUSHGP\n\tPUSHI " + str(id[0]) + "\n\tPADD\n")
+            outputFile.write("\tPUSHI " + str(p[3]) + "\n")
+            outputFile.write("\tLOADN\n")
+        else:
+            print("Semantic error:")
+            print("\tVariable \'" + p[1] + "\' is not an array.")
     else:
         print("Semantic error:")
-        print("\tVariable \'" + p[1] + "\' is not an array.")
-
+        print("\tVariable \'" + p[1] + "\' not defined.")
+    
 def p_Atomic_Array_Id(p):
     "Atomic : id '[' id ']'"
-    if type(p.parser.var.get(p[1])) is tuple:
-        outputFile.write("\tPUSHGP\n\tPUSHI " + str(p.parser.var.get(p[1])[0]) + "\n\tPADD\n")
-        outputFile.write("\tPUSHG " + str(p.parser.var.get(p[3])) + "\n")
-        outputFile.write("\tLOADN\n")
+    id = p.parser.var.get(p[1])
+    if type(id):
+        if type(id) is tuple:
+            if type(p.parser.var.get(p[3])) is int:
+                outputFile.write("\tPUSHGP\n\tPUSHI " + str(id[0]) + "\n\tPADD\n")
+                outputFile.write("\tPUSHG " + str(p.parser.var.get(p[3])) + "\n")
+                outputFile.write("\tLOADN\n")
+            else:
+                print("Semantic error:")
+                print("\tVariable \'" + p[3] + "\' not defined.")
+        else:
+            print("Semantic error:")
+            print("\tVariable \'" + p[1] + "\' is not an array.")
     else:
         print("Semantic error:")
-        print("\tVariable \'" + p[1] + "\' is not an array.")
+        print("\tVariable \'" + p[1] + "\' not defined.")
 
 # Production rules for signal
 def p_Signal_End(p):
@@ -383,24 +508,42 @@ def p_String_int_end(p):
 def p_error(p):
     print("YACC ERROR:\n\t" + str(p))
     line_size = p.lexpos - code.rfind('\n', 0, p.lexpos) +1
-    print("\tErro encontrado na linha", p.lineno, "coluna", line_size)
+    print("\tError found on line", p.lineno, "column", line_size)
     if p.type == "id":
         if expected := mostSimilar(p.value):
             print("\tYou wrote \'" + p.value + "\', did you mean to write \'" + expected + "\'?")
         else:
-            print("Unkown simbol recognized: " + p.value)
+            print("\tUnkown simbol: " + p.value)
             pass
     elif p.type == "start":
         print("\tKeyword 'start' misused, this keyword is utilized in the begining of your code block.")
+    elif p.type == "print":
+        print("\tKeyword 'print' misused, this keyword prints any integer in the standard output.")
+    elif p.type == "printS":
+        print("\tKeyword 'printS' misused, this keyword prints any string of characters in the standard output.")
+    elif p.type == "print":
+        print("\tKeyword 'read' misused, this keyword reads any integer in the standard input.")
+    elif p.type == "if":
+        print("\tKeyword 'if' misused, this keyword initiates an if statement.")
+    elif p.type == "else":
+        print("\tKeyword 'else' misused, this keyword must be utilized after an if code block.")
+    elif p.type == "repeat":
+        print("\tKeyword 'repeat' misused, this keyword loops the given block of code as many times as the result of the given expression.")
+    elif p.type == "while":
+        print("\tKeyword 'while' misused, this keyword loops the given block of code as long as the given condition is true.")
+    elif p.type == "and":
+        print("\tKeyword 'and' misused, this keyword is the logical conjunction opetator.")
+    elif p.type == "or":
+        print("\tKeyword 'or' misused, this keyword is the logical disjunction opetator.")
+    elif p.type == "int":
+        print("\tKeyword 'int' misused, this keyword indicates the type of a variable.")
     else:
-        # por o resto dos tokens
         pass
-  
 
 def mostSimilar(error):
     r = (None,0.4)
     for t in tokens:
-        if t != "id" or t != "integer" or t != "string":
+        if t != "id" and t != "integer" and t != "string":
             sim = similar(error, t)
             if r[1] < sim:
                 r = (t,sim)

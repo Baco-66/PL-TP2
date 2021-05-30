@@ -49,8 +49,8 @@ t_ignore = " \t"
 
 def t_error(t):
     print('LEX ERROR:\n\t' + str(t))
-    print("\tCarater ilegal \'" + t.value[0] + '\'')
-    print("\tLinha " + str(t.lexer.lineno))
+    print("\tIllegal character \'" + t.value[0] + '\'')
+    print("\tLine " + str(t.lexer.lineno))
     t.lexer.skip(1)
 
 lexer = lex.lex()
