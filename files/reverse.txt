@@ -1,0 +1,12 @@
+int a[5];
+int N;
+start
+while(N<5){
+    read(a[N])
+    N++;
+}
+repeat(N){
+    N--;
+    print(a[N])
+    printS("\n")
+}

@@ -1,0 +1,15 @@
+int a[5];
+int N = 5;
+start
+a[0] = 15;
+a[1] = 8;
+a[2] = 9;
+a[3] = -1;
+a[4] = 0;
+repeat(N){
+    N--;
+    if(a[N] % 2 != 0){
+        print(a[N])
+        printS("\n")
+    }
+}
